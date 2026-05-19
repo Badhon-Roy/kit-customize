@@ -103,7 +103,7 @@ const Banner = () => {
   };
 
   return (
-    <section className="relative w-full h-[100vh] min-h-[600px] flex flex-col justify-between overflow-hidden select-none">
+    <section className="relative w-full h-screen min-h-[600px] flex flex-col justify-between overflow-hidden select-none">
       
       {/* Base solid background color layer (z-0) */}
       <div className="absolute inset-0 bg-[#f1f3f5] z-0" />
@@ -193,7 +193,7 @@ const Banner = () => {
                 opacity: style.opacity,
                 zIndex: style.zIndex,
               }}
-              className={`absolute top-[52%] w-[68vw] sm:w-[50vw] md:w-[34vw] max-w-[530px] aspect-[3/4] flex items-center justify-center ${
+              className={`absolute top-[52%] w-[68vw] sm:w-[50vw] md:w-[34vw] max-w-[530px] aspect-3/4 flex items-center justify-center ${
                 style.showMobile ? "flex" : "hidden md:flex"
               }`}
             >

@@ -26,7 +26,7 @@ const Navbar = () => {
         initial={{ y: -15, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 1.0, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
-        className="flex-shrink-0"
+        className="shrink-0"
       >
         <Link href="/" className="block transition-transform hover:scale-105 duration-300">
           <Image 

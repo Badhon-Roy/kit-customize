@@ -88,7 +88,7 @@ You can use our Configurator or request a Super Design, the result will be excep
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.45)_0%,transparent_70%)] transition-opacity duration-700 pointer-events-none" />
 
               {/* Card visual container for Image */}
-              <div className="relative w-full aspect-[4/3] flex items-center justify-center">
+              <div className="relative w-full aspect-4/3 flex items-center justify-center">
                 {/* The main card image with refined motion floating */}
                 <motion.div
                   className="w-full h-full relative"
