@@ -68,7 +68,7 @@ const Navbar = () => {
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 1.0, delay: 1.08, ease: [0.16, 1, 0.3, 1] }}
       >
-        <Link href="https://jersey-customize.vercel.app/brand-new-design" target="_blank" className="inline-block">
+        <Link href="/brand-new-design" target="_blank" className="inline-block">
           <CommonButton 
             buttonText="Start Customizing"
           />
