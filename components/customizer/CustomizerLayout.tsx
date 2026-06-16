@@ -6917,12 +6917,7 @@ export default function CustomizerLayout() {
 
                         <div className="flex gap-2 flex-wrap mb-3">
                           {[
-                            "#E63946",
-                            "#2196F3",
-                            "#111111",
-                            "#FFFFFF",
-                            "#CCCCCC",
-                            "#457B9D",
+                            "#E63946", "#2196F3", "#111111","#FFFFFF","#CCCCCC", "#457B9D",
                             "#2A9D8F",
                             "#F4A261",
                             "#726DE8",
