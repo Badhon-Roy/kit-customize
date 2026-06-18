@@ -3210,8 +3210,10 @@ function useJerseyDecals(state: any) {
       const sideTextLayers = (state.textLayers || []).filter(
         (l: any) => l.side === side,
       );
+      // Logos (type === "logo" or unset) are rendered as separate 3D decals — exclude from flat canvas
+      // Images (type === "image") stay on the flat canvas texture as before
       const sideLogoLayers = (state.logoLayers || []).filter(
-        (l: any) => l.side === side,
+        (l: any) => l.side === side && l.type === "image",
       );
 
       const allSideLayers = [
@@ -4526,6 +4528,184 @@ function ThreeGrabber({
   return null;
 }
 
+// ─── LogoDecal: Renders a single logo layer as a 3D surface decal ──────────────
+// Only used for layers with type === "logo" (or no type set).
+// Image (Wrap/BG) layers are NOT affected by this component.
+interface LogoDecalProps {
+  layer: any;
+  loadedLogoImages: any;
+  roughness: number;
+  fabricConfig: any;
+}
+
+function LogoDecal({ layer, loadedLogoImages, roughness, fabricConfig }: LogoDecalProps) {
+  const img = loadedLogoImages[layer.src];
+  const texture = useMemo(() => {
+    if (!img) return null;
+    const canvas = document.createElement("canvas");
+    const imgWidth = img.naturalWidth || img.width || 200;
+    const imgHeight = img.naturalHeight || img.height || 200;
+    canvas.width = imgWidth;
+    canvas.height = imgHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    ctx.clearRect(0, 0, imgWidth, imgHeight);
+    ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
+
+    if (layer.eraserPaths && layer.eraserPaths.length > 0) {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "rgba(0,0,0,1)";
+      layer.eraserPaths.forEach((path: any) => {
+        ctx.lineWidth = path.size;
+        ctx.beginPath();
+        path.points.forEach((pt: any, idx: number) => {
+          if (idx === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
+        ctx.stroke();
+      });
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.needsUpdate = true;
+    return tex;
+  }, [img, layer.eraserPaths]);
+
+  if (!texture || !img) return null;
+
+  const isFront = layer.side === "Front";
+  const x = layer.x;
+  const y = layer.y;
+  const rotRad = (layer.rotation * Math.PI) / 180;
+
+  const Rx = 0.187;
+  const Rz = 0.135;
+  const maxSweep = (70 * Math.PI) / 180;
+  const sleeveW = 260;
+
+  // Sleeve classification: tighter bounds + Y threshold so waist isn't misclassified
+  const isSleeve = (x < sleeveW || x > 1024 - sleeveW) && y < 460;
+
+  // Vertical mapping
+  const py = -(y / 1024 - 0.5) * 0.64 - 0.0175;
+
+  // Small surface-normal shift to keep decal flush on curved surface
+  const shiftD = 0.02;
+
+  // Decal projection depth — scales with logo size so large logos never get clipped
+  const depth = isSleeve
+    ? Math.max(0.08, layer.scale * 0.09)
+    : Math.max(0.2, layer.scale * 0.18);
+
+  let px = 0;
+  let pz = 0;
+  let rx = 0;
+  let ry = 0;
+  let rz = 0;
+
+  if (isFront) {
+    if (isSleeve) {
+      if (x < sleeveW) {
+        // Front-Left Sleeve
+        const t = x / sleeveW;
+        const px_c = -0.276 + t * 0.10;
+        const pz_c = -0.04 + t * 0.086;
+        ry = -maxSweep;
+        px = px_c + shiftD * Math.sin(ry);
+        pz = pz_c + shiftD * Math.cos(ry);
+        rz = 0.35 - rotRad;
+      } else {
+        // Front-Right Sleeve
+        const t = (1024 - x) / sleeveW;
+        const px_c = 0.276 - t * 0.10;
+        const pz_c = -0.04 + t * 0.086;
+        ry = maxSweep;
+        px = px_c + shiftD * Math.sin(ry);
+        pz = pz_c + shiftD * Math.cos(ry);
+        rz = -0.35 - rotRad;
+      }
+    } else {
+      // Torso Front — cylindrical projection
+      const tTorso = (x - sleeveW) / (1024 - 2 * sleeveW);
+      const theta = (tTorso - 0.5) * (2 * maxSweep);
+      px = Rx * Math.sin(theta);
+      pz = Rz * Math.cos(theta) + shiftD;
+      ry = theta;
+      rz = -rotRad;
+    }
+  } else {
+    // Back side
+    if (isSleeve) {
+      if (x < sleeveW) {
+        // Back-Left Sleeve (wearer's left arm = positive X on 3D)
+        const t = x / sleeveW;
+        const px_c = 0.276 - t * 0.10;
+        const pz_c = -0.04 + t * 0.086;
+        ry = Math.PI - maxSweep;
+        px = px_c + shiftD * Math.sin(ry);
+        pz = pz_c + shiftD * Math.cos(ry);
+        rz = -0.35 + rotRad;
+      } else {
+        // Back-Right Sleeve (wearer's right arm = negative X on 3D)
+        const t = (1024 - x) / sleeveW;
+        const px_c = -0.276 + t * 0.10;
+        const pz_c = -0.04 + t * 0.086;
+        ry = -Math.PI + maxSweep;
+        px = px_c + shiftD * Math.sin(ry);
+        pz = pz_c + shiftD * Math.cos(ry);
+        rz = 0.35 + rotRad;
+      }
+    } else {
+      // Torso Back — non-mirrored cylindrical projection
+      const tTorso = (x - sleeveW) / (1024 - 2 * sleeveW);
+      const theta = Math.PI + (tTorso - 0.5) * (2 * maxSweep);
+      px = Rx * Math.sin(theta);
+      pz = Rz * Math.cos(theta) - shiftD;
+      ry = theta;
+      rz = rotRad;
+    }
+  }
+
+  const imgWidth = img.naturalWidth || img.width || 200;
+  const imgHeight = img.naturalHeight || img.height || 200;
+  const size = 0.15;
+  const aspect = imgWidth / imgHeight;
+
+  const decalScale: [number, number, number] = [
+    size * layer.scale * aspect,
+    size * layer.scale,
+    depth,
+  ];
+
+  return (
+    <Decal
+      position={[px, py, pz]}
+      rotation={[rx, ry, rz]}
+      scale={decalScale}
+      renderOrder={20}
+    >
+      <meshStandardMaterial
+        map={texture}
+        transparent
+        alphaTest={0.5}
+        depthWrite={false}
+        polygonOffset
+        polygonOffsetFactor={-8}
+        roughness={roughness}
+        normalMap={fabricConfig.normalMap || undefined}
+        normalScale={fabricConfig.normalScale}
+        envMapIntensity={0.2}
+      />
+    </Decal>
+  );
+}
+
 function Jersey3D({
   colors,
   collar,
@@ -4859,6 +5039,17 @@ function Jersey3D({
             />
           </Decal>
         )}
+
+        {/* ── Logo Layers: rendered as independent 3D decals with cylindrical surface mapping ── */}
+        {(colors.logoLayers || []).filter((l: any) => l.type === "logo" || !l.type).map((layer: any) => (
+          <LogoDecal
+            key={layer.id}
+            layer={layer}
+            loadedLogoImages={colors.loadedLogoImages || {}}
+            roughness={roughness}
+            fabricConfig={fabricConfig}
+          />
+        ))}
       </mesh>
 
       {/* ── Dynamic Collar Elements (Polo 3D Wings, now flush and realistic) ── */}
@@ -6917,7 +7108,12 @@ export default function CustomizerLayout() {
 
                         <div className="flex gap-2 flex-wrap mb-3">
                           {[
-                            "#E63946", "#2196F3", "#111111","#FFFFFF","#CCCCCC", "#457B9D",
+                            "#E63946",
+                            "#2196F3",
+                            "#111111",
+                            "#FFFFFF",
+                            "#CCCCCC",
+                            "#457B9D",
                             "#2A9D8F",
                             "#F4A261",
                             "#726DE8",
