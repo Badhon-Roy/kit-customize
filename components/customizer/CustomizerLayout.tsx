@@ -5428,7 +5428,7 @@ const TABS = [
   { id: "colors", icon: Palette, label: "Colors" },
   { id: "patterns", icon: Grid, label: "Patterns" },
   { id: "text", icon: Type, label: "Text" },
-  // { id: "logos", icon: ImageIcon, label: "Uploads" },
+  { id: "logos", icon: ImageIcon, label: "Uploads" },
   { id: "style", icon: Scissors, label: "Style" },
   { id: "fabric", icon: Box, label: "Fabric" },
 ];
